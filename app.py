@@ -3,19 +3,26 @@ import requests
 import os
 from dotenv import load_dotenv
 
-# Загружаем переменные окружения из .env (только для локальной разработки)
+# Только для локальной разработки
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "fallback-secret")
 
+# Берём переменные окружения
 BREVO_API_KEY = os.getenv("BREVO_API_KEY")
 FROM_EMAIL = os.getenv("FROM_EMAIL")
 FROM_NAME = os.getenv("FROM_NAME", "Rustem")
 
+# Проверка наличия ключей
+if not BREVO_API_KEY or not FROM_EMAIL:
+    print("WARNING: BREVO_API_KEY или FROM_EMAIL не установлены!")
 
 def send_email(to_email: str, subject: str, text: str, html: str | None = None):
     """Отправка письма через Brevo SMTP API"""
+    if not BREVO_API_KEY:
+        raise ValueError("BREVO_API_KEY не задан!")
+
     url = "https://api.brevo.com/v3/smtp/email"
     headers = {
         "api-key": BREVO_API_KEY,
@@ -28,9 +35,9 @@ def send_email(to_email: str, subject: str, text: str, html: str | None = None):
         "textContent": text,
         "htmlContent": html or text
     }
+
     response = requests.post(url, json=data, headers=headers, timeout=15)
     return response
-
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -57,6 +64,7 @@ def index():
                 flash("Письмо успешно отправлено!", "success")
             else:
                 flash(f"Ошибка при отправке: {resp.text}", "danger")
+
         except Exception as e:
             print("Ошибка при отправке письма:", e)
             flash(f"Ошибка при отправке: {e}", "danger")
@@ -65,6 +73,6 @@ def index():
 
     return render_template("index.html")
 
-
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
